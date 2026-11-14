@@ -1,0 +1,132 @@
+# ============================================================
+# .gitignore — Global News Intelligence Platform
+# ============================================================
+
+# --- Secrets and environment ---
+.env
+.env.local
+.env.*.local
+secrets/
+*.pem
+*.key
+*.crt
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.manifest
+*.spec
+.Python
+.python-version
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+*.pytest.xml
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+# Profiling
+*.prof
+
+# --- Node / React ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/.nuxt/
+frontend/.output/
+*.local
+
+# --- Java / Hadoop / Spark / HBase / Kafka ---
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+target/
+.classpath
+.project
+.settings/
+.factorypath
+# Hadoop logs and temp
+logs/
+*.log
+*.out
+# Spark
+spark-warehouse/
+derby.log
+metastore_db/
+# Checkpoint directories (use HDFS in production)
+checkpoints/
+
+# --- Data files (large, not committed) ---
+data/raw/
+data/processed/
+# Keep directory markers
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+# Specific large data formats
+*.zip
+*.gz
+*.csv
+*.tsv
+*.parquet
+*.orc
+*.avro
+*.jsonl
+
+# --- IDE and OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.tmp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Docker ---
+.docker/
+
+# --- Terraform / Infrastructure state ---
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# --- Infrastructure generated configs (keep templates only) ---
+infrastructure/kafka/server.properties
+infrastructure/hadoop/core-site.xml
+infrastructure/hadoop/hdfs-site.xml
+infrastructure/hbase/hbase-site.xml
+infrastructure/spark/spark-defaults.conf

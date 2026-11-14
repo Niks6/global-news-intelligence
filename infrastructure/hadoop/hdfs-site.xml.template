@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  HDFS site configuration for 3-node academic cluster.
+  Copy to $HADOOP_HOME/etc/hadoop/hdfs-site.xml on ALL nodes.
+  Replication factor 2: tolerates 1 node failure. Factor 1 risks data loss.
+-->
+<configuration>
+  <property>
+    <name>dfs.replication</name>
+    <value>2</value>
+    <description>Block replication factor. 2 for a 3-node academic cluster.
+    Trade-off: Factor 2 tolerates 1 DataNode failure but uses 2x storage.
+    Factor 1 saves storage but ANY single node failure causes data loss.</description>
+  </property>
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///var/hadoop/hdfs/namenode</value>
+  </property>
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///var/hadoop/hdfs/datanode</value>
+  </property>
+  <property>
+    <name>dfs.blocksize</name>
+    <value>67108864</value>
+    <description>64 MB block size (smaller than default 128 MB for small-scale data)</description>
+  </property>
+  <property>
+    <name>dfs.namenode.http-address</name>
+    <value><NAMENODE_HOST>:9870</value>
+  </property>
+  <property>
+    <name>dfs.namenode.handler.count</name>
+    <value>10</value>
+  </property>
+  <property>
+    <name>dfs.datanode.max.transfer.threads</name>
+    <value>4096</value>
+  </property>
+  <!-- Memory conservative: NameNode heap 512m, DataNode 512m -->
+  <!-- Set in hadoop-env.sh: export HADOOP_NAMENODE_OPTS="-Xmx512m" -->
+  <!-- Set in hadoop-env.sh: export HADOOP_DATANODE_OPTS="-Xmx512m" -->
+</configuration>
+

@@ -1,0 +1,158 @@
+version: "3.9"
+
+# ============================================================
+# Docker Compose — LOCAL DEVELOPMENT MODE ONLY
+# ============================================================
+# This compose file provides a lightweight Kafka + ZooKeeper
+# environment for local development. It does NOT replace the
+# 3-node cluster for production. HDFS and HBase are NOT
+# included here — use the full cluster for those.
+#
+# Usage:
+#   docker compose up -d kafka zookeeper
+#   docker compose logs -f kafka
+#   docker compose down
+# ============================================================
+
+services:
+
+  # ---------------------------------------------------------
+  # ZooKeeper (required by Kafka)
+  # ---------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: gnip-zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------
+  # Kafka Broker (single broker for local dev)
+  # NOTE: Kafka 3.6.1 — using Confluent Platform 7.6.x which
+  # ships Kafka 3.6.1 internally.
+  # ---------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: gnip-kafka
+    hostname: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      # For local dev: advertise on localhost so the host machine can reach it
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ---------------------------------------------------------
+  # Schema Registry (optional — for Avro schema management)
+  # Uncomment if using Avro serialization in future phases.
+  # ---------------------------------------------------------
+  # schema-registry:
+  #   image: confluentinc/cp-schema-registry:7.6.1
+  #   container_name: gnip-schema-registry
+  #   hostname: schema-registry
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     SCHEMA_REGISTRY_HOST_NAME: schema-registry
+  #     SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+  #     SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  # ---------------------------------------------------------
+  # Kafka UI (optional — web UI for inspecting topics/messages)
+  # Access at http://localhost:8080
+  # ---------------------------------------------------------
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: gnip-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local-dev
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    restart: unless-stopped
+    profiles:
+      - dev-ui
+
+  # ---------------------------------------------------------
+  # HBase (standalone mode for local development)
+  # WARNING: This is NOT clustered HBase. Use only for schema
+  # testing and local dev. Production uses the 3-node cluster.
+  # ---------------------------------------------------------
+  hbase:
+    image: dajobe/hbase:latest
+    container_name: gnip-hbase-dev
+    hostname: hbase
+    ports:
+      - "16000:16000"   # HBase Master
+      - "16010:16010"   # HBase Master Web UI
+      - "16020:16020"   # RegionServer
+      - "16030:16030"   # RegionServer Web UI
+      - "2182:2181"     # ZooKeeper (HBase embedded, different port to avoid conflict)
+      - "8085:8080"     # HBase REST API
+      - "8090:8085"     # HBase Thrift UI
+    volumes:
+      - hbase_data:/data
+    restart: unless-stopped
+    profiles:
+      - dev-hbase
+
+volumes:
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
+    driver: local
+  hbase_data:
+    driver: local
+
+networks:
+  default:
+    name: gnip-dev-network

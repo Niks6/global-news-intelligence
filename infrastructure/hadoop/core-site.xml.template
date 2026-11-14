@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Hadoop core-site.xml template for 3-node cluster.
+  Copy to $HADOOP_HOME/etc/hadoop/core-site.xml on ALL nodes.
+  Replace <NAMENODE_HOST> with Machine 3's LAN IP or hostname.
+-->
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://<NAMENODE_HOST>:9000</value>
+    <description>Default filesystem URI. All nodes must point to the same NameNode.</description>
+  </property>
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/var/hadoop/tmp</value>
+    <description>Temporary directory for Hadoop data.</description>
+  </property>
+  <property>
+    <name>io.file.buffer.size</name>
+    <value>131072</value>
+  </property>
+</configuration>
+

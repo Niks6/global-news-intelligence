@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #0f172a;
+    --bg-card: #1e293b;
+    --bg-card-hover: #273344;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border: #334155;
+    --positive: #22c55e;
+    --negative: #ef4444;
+    --warning: #f59e0b;
+  }
+
+  body {
+    @apply bg-slate-900 text-slate-100 font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  * {
+    @apply border-slate-700;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track { background: #1e293b; }
+  ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+}
+
+@layer components {
+  .card {
+    @apply bg-slate-800 border border-slate-700 rounded-xl p-4;
+  }
+  .card-hover {
+    @apply card transition-colors hover:bg-slate-750 hover:border-slate-600;
+  }
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+  }
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-600 text-slate-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-blue   { @apply badge bg-blue-900/60 text-blue-300; }
+  .badge-green  { @apply badge bg-green-900/60 text-green-300; }
+  .badge-red    { @apply badge bg-red-900/60 text-red-300; }
+  .badge-yellow { @apply badge bg-yellow-900/60 text-yellow-300; }
+  .badge-purple { @apply badge bg-purple-900/60 text-purple-300; }
+  .input-base {
+    @apply bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2 text-sm
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+           placeholder-slate-400;
+  }
+  .select-base {
+    @apply input-base cursor-pointer;
+  }
+  .section-title {
+    @apply text-slate-100 font-semibold text-sm uppercase tracking-wider;
+  }
+  .metric-label {
+    @apply text-slate-400 text-xs uppercase tracking-wide;
+  }
+  .metric-value {
+    @apply text-slate-100 text-2xl font-bold;
+  }
+}
+
+/* Leaflet map overrides */
+.leaflet-container {
+  background: #0f172a !important;
+  font-family: 'Inter', sans-serif;
+}
+.leaflet-control-zoom a {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+.leaflet-popup-content-wrapper {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+  border-radius: 10px;
+}
+.leaflet-popup-tip { background: #1e293b; }
+
