@@ -34,14 +34,71 @@ def _hbase_connected() -> bool:
         return False
 
 
+def _kafka_reachable() -> bool:
+    """Check if Kafka broker is reachable via socket."""
+    import socket
+    try:
+        from src.common.config import get_settings
+        s = get_settings()
+        host = s.kafka_bootstrap_servers.split(",")[0]
+        h, p = host.split(":")
+        sock = socket.create_connection((h, int(p)), timeout=3)
+        sock.close()
+        return True
+    except Exception:
+        return False
+
+
+def _hdfs_reachable() -> bool:
+    """Check if HDFS NameNode web UI is reachable."""
+    import urllib.request
+    try:
+        from src.common.config import get_settings
+        s = get_settings()
+        url = s.hdfs_webhdfs_url  # e.g. "http://node3:9870"
+        req = urllib.request.Request(url, method="HEAD")
+        urllib.request.urlopen(req, timeout=3)
+        return True
+    except Exception:
+        return False
+
+
 @router.get("/health")
 def health_check():
+    hbase_ok = _hbase_connected()
+    kafka_ok = _kafka_reachable()
+    hdfs_ok = _hdfs_reachable()
+
+    components = {
+        "kafka": {"status": "up" if kafka_ok else "down"},
+        "hbase": {"status": "up" if hbase_ok else "down"},
+        "hdfs": {"status": "up" if hdfs_ok else "down"},
+        "spark": {"status": "unknown"},
+    }
+
+    all_up = all(c["status"] == "up" for c in components.values() if c["status"] != "unknown")
+    any_up = any(c["status"] == "up" for c in components.values())
+
+    if all_up:
+        overall = "healthy"
+    elif any_up:
+        overall = "degraded"
+    else:
+        overall = "unhealthy"
+
     return {
-        "status": "ok",
+        "status": overall,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0",
         "service": "Global News Intelligence API",
+        "components": components,
     }
+
+
+@router.get("/health/ready")
+def readiness_check():
+    """Readiness probe — returns ready=true if backend can serve requests."""
+    return {"ready": True, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @router.get("/health/pipeline")

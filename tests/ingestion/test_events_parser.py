@@ -49,6 +49,7 @@ class TestEventsParser:
         defaults[32] = "5"            # NumSources
         defaults[33] = "8"            # NumArticles
         defaults[34] = "-1.5"         # AvgTone
+        defaults[53] = "US"           # ActionGeo_CountryCode
         defaults[56] = "38.9"         # ActionGeo_Lat
         defaults[57] = "-77.0"        # ActionGeo_Long
         defaults[59] = "20261114120000" # DATEADDED

@@ -145,6 +145,33 @@ class EventsParser:
     # Public API
     # ------------------------------------------------------------------
 
+    def parse_lines(self, lines: List[str], source: str = "") -> Tuple[List[Any], List[Dict]]:
+        """
+        Parse a list of TSV line strings into validated GDELTEvent models.
+
+        Returns:
+            (accepted_models, rejected_dicts)
+        """
+        content = "\n".join(lines)
+        accepted_dicts, rejected = self.parse_tsv(content, source=source)
+        models = []
+        extra_rejected = []
+        for d in accepted_dicts:
+            try:
+                from src.common.schemas import GDELTEvent
+                # Filter out internal fields before model construction
+                model_data = {k: v for k, v in d.items() if not k.startswith("_")}
+                model = GDELTEvent.model_validate(model_data)
+                models.append(model)
+            except Exception as exc:
+                extra_rejected.append({
+                    "_source": d.get("_source_file", source),
+                    "_line": d.get("_line_num", 0),
+                    "_error": f"Model validation: {exc}",
+                    "_raw": d,
+                })
+        return models, rejected + extra_rejected
+
     def parse_zip(self, zip_path: str | Path) -> Tuple[List[Dict], List[Dict]]:
         """
         Parse a .export.CSV.zip file.

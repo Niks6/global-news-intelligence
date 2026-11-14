@@ -7,7 +7,7 @@ import DateRangePicker from '../components/DateRangePicker'
 import EmptyState from '../components/EmptyState'
 import { GridSkeleton } from '../components/LoadingSkeleton'
 import type { DateRange } from '../types'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 import { useSearchParams } from 'react-router-dom'
 
 const BAR_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#ec4899']
@@ -101,7 +101,7 @@ export default function ComparePage() {
                   <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#f1f5f9' }} />
                   <Bar dataKey="avg_tone" radius={[4, 4, 0, 0]} name="Avg Tone">
                     {toneData.map((_: any, i: number) => (
-                      <cell key={i} fill={toneData[i]?.avg_tone >= 0 ? '#22c55e' : '#ef4444'} />
+                      <Cell key={i} fill={toneData[i]?.avg_tone >= 0 ? '#22c55e' : '#ef4444'} />
                     ))}
                   </Bar>
                 </BarChart>
