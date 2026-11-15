@@ -381,7 +381,6 @@ Run with `make test`. The Events parser was also run on a sample GDELT file: 749
 - Topics come from GDELT GKG themes (dictionary based), not a trained topic model.
 - The z-score anomaly method is simple and can flag regular daily patterns.
 - The 3-PC cluster has a single Kafka broker, NameNode and HBase Master (no high availability). HDFS replication is 2, so losing two nodes can lose data.
-- Not designed for a full historical GDELT backfill.
 
 ## 12. Conclusion
 
