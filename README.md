@@ -378,7 +378,76 @@ docker exec gnip-namenode hdfs dfs -ls -R /gdelt/curated /gdelt/analytics
 bash scripts/check-health.sh
 ```
 
-## 10. Testing
+<!-- <img width="1600" height="720" alt="WhatsApp Image 2026-11-25 at 2 09 19 AM (1)" src="https://github.com/user-attachments/assets/aafa1370-500f-464e-b91b-fdd1fd6b8f0b" />
+<img width="1600" height="723" alt="WhatsApp Image 2026-11-25 at 2 09 19 AM" src="https://github.com/user-attachments/assets/aa5b7b5f-7ac9-4cd7-8642-b07596a4c267" />
+<img width="1600" height="724" alt="WhatsApp Image 2026-11-25 at 2 09 18 AM (1)" src="https://github.com/user-attachments/assets/b091f1a3-072e-429e-a905-6c7ff43ca46c" />
+<img width="1600" height="730" alt="WhatsApp Image 2026-11-25 at 2 09 18 AM" src="https://github.com/user-attachments/assets/1076609e-01bf-4b0f-a8c0-d083c5c7053b" />
+<img width="1600" height="719" alt="WhatsApp Image 2026-11-25 at 2 09 17 AM (1)" src="https://github.com/user-attachments/assets/e93de2e2-2bfd-4776-a428-6e53087a7101" />
+<img width="1600" height="728" alt="WhatsApp Image 2026-11-25 at 2 09 17 AM" src="https://github.com/user-attachments/assets/1e2880c1-b4db-487d-aa8f-12909509c867" />
+<img width="1600" height="724" alt="WhatsApp Image 2026-11-25 at 2 09 16 AM (3)" src="https://github.com/user-attachments/assets/99ecb513-028b-49f5-baaf-e830fc38eb7e" />
+<img width="1600" height="725" alt="WhatsApp Image 2026-11-25 at 2 09 16 AM (1)" src="https://github.com/user-attachments/assets/61fe5700-911b-4340-a9c6-8e1cc1d1878b" />
+<img width="1600" height="730" alt="WhatsApp Image 2026-11-25 at 2 09 16 AM" src="https://github.com/user-attachments/assets/76d313f5-951a-41dc-bfa2-7a62513748fa" />
+<img width="1600" height="847" alt="WhatsApp Image 2026-11-25 at 2 09 15 AM" src="https://github.com/user-attachments/assets/98d250cf-8615-462a-84f2-3070bdca1a62" /> -->
+
+
+
+## 10. Output Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://github.com/user-attachments/assets/98d250cf-8615-462a-84f2-3070bdca1a62" width="95%">
+      <br><b>Global Overview 1</b>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://github.com/user-attachments/assets/76d313f5-951a-41dc-bfa2-7a62513748fa" width="95%">
+      <br><b>Global Overview 2</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://github.com/user-attachments/assets/61fe5700-911b-4340-a9c6-8e1cc1d1878b" width="95%">
+      <br><b>Live Events</b>
+    </td>
+    <td align="center" width="50%">
+      <img  src="https://github.com/user-attachments/assets/99ecb513-028b-49f5-baaf-e830fc38eb7e" width="95%">
+      <br><b>Topics & Trends</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://github.com/user-attachments/assets/1e2880c1-b4db-487d-aa8f-12909509c867" width="95%">
+      <br><b>Country Intel</b>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://github.com/user-attachments/assets/e93de2e2-2bfd-4776-a428-6e53087a7101" width="95%">
+      <br><b>Country Compare</b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://github.com/user-attachments/assets/1076609e-01bf-4b0f-a8c0-d083c5c7053b" width="95%">
+      <br><b>Conflict & Cooperation</b>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://github.com/user-attachments/assets/b091f1a3-072e-429e-a905-6c7ff43ca46c" width="95%">
+      <br><b>Sentiment & Tone </b>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://github.com/user-attachments/assets/aa5b7b5f-7ac9-4cd7-8642-b07596a4c267" width="95%">
+      <br><b>Anomalies </b>
+    </td>
+    <td align="center" width="50%">
+      <img  src="https://github.com/user-attachments/assets/aafa1370-500f-464e-b91b-fdd1fd6b8f0b" width="95%">
+      <br><b>System Health </b>
+    </td>
+  </tr>
+</table>
+
+
+## 11. Testing
 
 | File | Covers |
 |---|---|
@@ -389,7 +458,7 @@ bash scripts/check-health.sh
 
 Run with `pytest tests/ -v` (`22 passed` verified inside `gnip-backend`) and `python test_api.py` (`18/18 endpoints passed`).
 
-## 11. Limitations
+## 12. Limitations
 
 - GDELT coordinates can be missing or approximate; many events carry only a country-centroid location.
 - `AvgTone` reflects reporting text, not ground-truth sentiment.
@@ -397,7 +466,7 @@ Run with `pytest tests/ -v` (`22 passed` verified inside `gnip-backend`) and `py
 - The z-score anomaly method is simple and can flag regular daily volume cycles or structural country differences during early collection windows.
 - While Apache Kafka runs across all 3 nodes (replication factor 2, `min.insync.replicas=2`), ZooKeeper, HDFS NameNode, and HBase Master run as single instances without HA. HDFS replication is 2, so losing both DataNodes can lose data.
 
-## 12. Conclusion
+## 13. Conclusion
 
 The platform implements the full path from GDELT files to an interactive dashboard: validated incremental ingestion, Kafka transport, Spark streaming with windowed analytics and anomaly detection, HDFS and HBase storage, a 10-router REST API and a 10-page React interface, with configuration and scripts for a three-node deployment.
 
