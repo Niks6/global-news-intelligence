@@ -142,7 +142,26 @@ class DemoDataService:
         for c in cats:
             c["pct"] = round(c["count"] / max(total_cat, 1) * 100, 1)
 
+        # Compute cooperation vs conflict from categories
+        cooperation_count = sum(c["count"] for c in cats if not c["is_conflict"])
+        conflict_count = sum(c["count"] for c in cats if c["is_conflict"])
+        total_coop_conf = cooperation_count + conflict_count
+        cooperation_pct = round(cooperation_count / max(total_coop_conf, 1) * 100, 1)
+        conflict_pct = round(conflict_count / max(total_coop_conf, 1) * 100, 1)
+
+        # Build top_countries from reference data
+        top_countries = []
+        for c_code, c_name, _, _ in COUNTRIES:
+            c_rng = random.Random(_hash_seed(f"oc-{c_code}-{days[0]}"))
+            top_countries.append({
+                "country_code": c_code,
+                "country_name": c_name,
+                "event_count": c_rng.randint(200, 3000),
+            })
+        top_countries.sort(key=lambda x: x["event_count"], reverse=True)
+
         return {
+            "data_available": True,
             "total_events": total_events,
             "total_mentions": total_mentions,
             "total_articles": total_articles,
@@ -151,7 +170,12 @@ class DemoDataService:
             "avg_goldstein": round(rng.uniform(-1.0, 4.0), 2),
             "event_timeline": timeline,
             "top_topics": top_topics,
+            "top_countries": top_countries,
             "category_distribution": cats,
+            "cooperation_count": cooperation_count,
+            "conflict_count": conflict_count,
+            "cooperation_pct": cooperation_pct,
+            "conflict_pct": conflict_pct,
             "quad_class_summary": {
                 "Verbal Cooperation": rng.randint(3000, 8000),
                 "Material Cooperation": rng.randint(1000, 3000),
@@ -305,7 +329,7 @@ class DemoDataService:
             day_rng = random.Random(_hash_seed(f"ctl-{country_code}-{d}"))
             timeline.append({
                 "date": d,
-                "count": day_rng.randint(50, 500),
+                "event_count": day_rng.randint(50, 500),
                 "avg_tone": round(day_rng.uniform(-3, 2), 2),
                 "avg_goldstein": round(day_rng.uniform(-5, 7), 2),
             })
@@ -328,13 +352,19 @@ class DemoDataService:
             d_rng = random.Random(_hash_seed(f"cfl-{country_code}-{d}"))
             conflict_tl.append({"date": d, "cooperation": d_rng.randint(30, 200), "conflict": d_rng.randint(10, 80)})
 
+        coop_total = sum(x["cooperation"] for x in conflict_tl)
+        conf_total = sum(x["conflict"] for x in conflict_tl)
+
         return {
+            "data_available": True,
             "country_code": c[0],
             "country_name": c[1],
             "total_events": rng.randint(500, 5000),
             "total_mentions": rng.randint(2000, 20000),
             "avg_tone": round(rng.uniform(-2, 1.5), 2),
             "avg_goldstein": round(rng.uniform(-2, 5), 2),
+            "cooperation_count": coop_total,
+            "conflict_count": conf_total,
             "event_timeline": timeline,
             "top_topics": top_topics,
             "category_distribution": cats,
@@ -390,7 +420,15 @@ class DemoDataService:
         for code, (name, is_conflict) in CAMEO_CATEGORIES.items():
             cnt = rng.randint(50, 2000) if not is_conflict else rng.randint(20, 800)
             total += cnt
-            cats.append({"category": code, "category_name": name, "count": cnt, "is_conflict": is_conflict})
+            cats.append({
+                "root_code": code,
+                "category": code,
+                "category_name": name,
+                "count": cnt,
+                "avg_goldstein": round(rng.uniform(-5, 5), 2),
+                "avg_tone": round(rng.uniform(-3, 2), 2),
+                "is_conflict": is_conflict,
+            })
         for c in cats:
             c["pct"] = round(c["count"] / max(total, 1) * 100, 1)
         return {"data": cats, "total": total}
@@ -399,17 +437,23 @@ class DemoDataService:
                          country: Optional[str] = None, topic: Optional[str] = None) -> Dict:
         days = _date_range_days(from_dt, to_dt)
         trend = []
+        tone_sum = 0.0
+        total_count = 0
         for d in days:
             d_rng = random.Random(_hash_seed(f"tone-{d}-{country}"))
             avg = d_rng.uniform(-3, 2)
+            cnt = d_rng.randint(100, 2000)
+            tone_sum += avg * cnt
+            total_count += cnt
             trend.append({
                 "date": d,
                 "avg_tone": round(avg, 2),
                 "min_tone": round(avg - d_rng.uniform(2, 5), 2),
                 "max_tone": round(avg + d_rng.uniform(2, 5), 2),
-                "count": d_rng.randint(100, 2000),
+                "count": cnt,
             })
-        return {"data": trend, "total": len(trend)}
+        overall_avg = round(tone_sum / max(total_count, 1), 3)
+        return {"trend": trend, "overall_avg_tone": overall_avg, "total": len(trend)}
 
     def get_cooperation_conflict(self, from_dt: datetime, to_dt: datetime,
                                   country: Optional[str] = None) -> Dict:
@@ -436,16 +480,21 @@ class DemoDataService:
             baseline = rng.randint(50, 300)
             current = int(baseline * rng.uniform(2.5, 8.0))
             severity = "critical" if z > 4.5 else "high" if z > 3.5 else "medium"
+            a_type = rng.choice(["topic", "country", "category"])
             anomalies.append({
                 "id": f"anomaly-{i}",
-                "type": rng.choice(["topic", "country", "category"]),
+                "anomaly_type": a_type,
+                "type": a_type,
                 "label": rng.choice(TOPICS + [c[0] for c in COUNTRIES[:6]]),
                 "country_code": rng.choice(COUNTRIES[:6])[0],
+                "baseline_avg": float(baseline),
                 "baseline": baseline,
+                "current_count": float(current),
                 "current": current,
                 "pct_change": round((current - baseline) / max(baseline, 1) * 100, 0),
                 "z_score": z,
                 "severity": severity,
+                "detected_at": (from_dt + timedelta(hours=rng.randint(0, 72))).isoformat(),
                 "spike_started": (from_dt + timedelta(hours=rng.randint(0, 72))).isoformat(),
                 "event_count": current,
             })
@@ -474,7 +523,7 @@ class DemoDataService:
                 "date": (from_dt + timedelta(hours=rng.randint(0, 168))).strftime("%Y-%m-%d"),
                 "source_url": f"https://news.example.com/article-{i}",
             })
-        return {"data": markers, "total": len(markers)}
+        return {"markers": markers, "total": len(markers), "no_coordinates_count": 0}
 
     def get_map_countries(self, from_dt: datetime, to_dt: datetime) -> Dict:
         rng = random.Random(_hash_seed(f"mapc-{from_dt.date()}"))

@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { subDays, format } from 'date-fns'
+import { subDays, formatISO } from 'date-fns'
 import { Zap, ExternalLink, Search } from 'lucide-react'
-import { useEvents } from '../hooks/useApi'
+import { useEvents, useSearchEvents } from '../hooks/useApi'
 import DateRangePicker from '../components/DateRangePicker'
 import EmptyState from '../components/EmptyState'
 import LoadingSkeleton from '../components/LoadingSkeleton'
 import type { DateRange } from '../types'
-import { formatISO } from 'date-fns'
 
 const quadClassColors: Record<number, string> = { 1: 'text-green-400', 2: 'text-emerald-400', 3: 'text-orange-400', 4: 'text-red-400' }
 const quadClassNames: Record<number, string> = { 1: 'Verbal Coop', 2: 'Material Coop', 3: 'Verbal Conflict', 4: 'Material Conflict' }
@@ -17,15 +16,20 @@ export default function EventsPage() {
   const [country, setCountry] = useState('')
   const [searchQ, setSearchQ] = useState('')
 
+  const isSearching = searchQ.trim().length >= 2
   const params: Record<string, any> = {
     from_dt: formatISO(range.from), to_dt: formatISO(range.to),
     page, limit: 50,
   }
-  if (country) params.country = country
-  const events = useEvents(params)
-  const items = events.data?.items || []
-  const total = events.data?.total || 0
-  const totalPages = events.data?.total_pages || 1
+  if (country && !isSearching) params.country = country
+
+  const events = useEvents(params, !isSearching)
+  const searchResults = useSearchEvents(searchQ.trim(), params)
+  const activeQuery = isSearching ? searchResults : events
+
+  const items = activeQuery.data?.items || []
+  const total = activeQuery.data?.total || 0
+  const totalPages = activeQuery.data?.total_pages || 1
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -36,21 +40,32 @@ export default function EventsPage() {
           </h1>
           <p className="text-sm text-slate-400 mt-1">Browse, search, and filter global events</p>
         </div>
-        <DateRangePicker value={range} onChange={setRange} />
+        <DateRangePicker value={range} onChange={(r) => { setRange(r); setPage(1) }} />
       </div>
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input placeholder="Search events..." className="input-base w-full pl-9" value={searchQ} onChange={e => setSearchQ(e.target.value)} />
+          <input
+            placeholder="Search actors, locations, or URLs (min 2 chars)..."
+            className="input-base w-full pl-9"
+            value={searchQ}
+            onChange={e => { setSearchQ(e.target.value); setPage(1) }}
+          />
         </div>
-        <input placeholder="Country (e.g. US)" className="input-base w-24" value={country} onChange={e => setCountry(e.target.value.toUpperCase())} />
+        <input
+          placeholder="Country (e.g. US)"
+          className="input-base w-28"
+          value={country}
+          disabled={isSearching}
+          onChange={e => { setCountry(e.target.value.toUpperCase()); setPage(1) }}
+        />
       </div>
 
       {/* Table */}
-      {events.isLoading ? <LoadingSkeleton rows={8} /> : items.length === 0 ? (
-        <EmptyState message="No events found" description="Adjust filters or expand the date range" onRetry={() => events.refetch()} />
+      {activeQuery.isLoading ? <LoadingSkeleton rows={8} /> : items.length === 0 ? (
+        <EmptyState message="No events found" description="Adjust filters or expand the date range" onRetry={() => activeQuery.refetch()} />
       ) : (
         <>
           <div className="overflow-x-auto">
@@ -119,4 +134,3 @@ export default function EventsPage() {
     </div>
   )
 }
-

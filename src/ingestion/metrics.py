@@ -91,5 +91,10 @@ class IngestionMetrics:
             }
 
 
+    def snapshot(self) -> Dict[str, Any]:
+        """Alias for as_dict() used by the ingestion CLI."""
+        return self.as_dict()
+
+
 # Module-level singleton
 metrics = IngestionMetrics()

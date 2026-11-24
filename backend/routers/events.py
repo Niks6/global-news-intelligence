@@ -28,9 +28,16 @@ def list_events(
 
 
 @router.get("/events/{global_event_id}")
-def get_event(global_event_id: int):
+def get_event(global_event_id: str):
+    if not global_event_id.isdigit():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Event not found")
     svc = HBaseService()
-    return svc.get_event_by_id(global_event_id)
+    res = svc.get_event_by_id(int(global_event_id))
+    if not res:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Event not found")
+    return res
 
 
 @router.get("/events/{global_event_id}/mentions")

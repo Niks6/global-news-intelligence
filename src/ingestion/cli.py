@@ -41,12 +41,14 @@ def ingest_once(download_dir, dry_run):
 
 
 @cli.command("poll")
-@click.option("--interval", type=int, default=None, help="Poll interval in minutes (default: 15)")
+@click.option("--interval", "--interval-mins", type=int, default=None, help="Poll interval in minutes (default: 15)")
 @click.option("--dry-run", is_flag=True, help="Parse but do not publish to Kafka")
 def poll_continuously(interval, dry_run):
     """Continuous polling loop — runs until interrupted with Ctrl+C."""
     from src.ingestion.poller import GDELTPoller
     poller = GDELTPoller(poll_interval_minutes=interval, dry_run=dry_run)
+    # Write initial DB snapshot immediately so health API reflects persisted state
+    poller._write_metrics_snapshot()
     logger.info("Starting continuous polling (Ctrl+C to stop)...")
     try:
         poller.run_forever()

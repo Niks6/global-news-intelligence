@@ -6,6 +6,9 @@ Parses .gkg.csv.zip files and returns list of dicts.
 from __future__ import annotations
 
 import csv
+import sys
+
+csv.field_size_limit(min(sys.maxsize, 10 * 1024 * 1024))
 import io
 import logging
 import zipfile
@@ -214,18 +217,30 @@ class GKGParser:
 
     def _parse_row(self, raw: Dict[str, str]) -> Dict[str, Any]:
         """Transform raw string dict into structured dict with parsed sub-fields."""
-        tone_parsed = _parse_tone(raw.get("Tone", ""))
+        tone_raw = _first(raw, "V1.5Tone", "Tone")
+        tone_parsed = _parse_tone(tone_raw)
+        themes_raw = _first(raw, "V2EnhancedThemes", "V2Themes", "V1Themes", "Themes")
+        locs_raw = _first(raw, "V2EnhancedLocations", "V2Locations", "V1Locations", "Locations")
+        persons_raw = _first(raw, "V2EnhancedPersons", "V2Persons", "V1Persons", "Persons")
+        orgs_raw = _first(raw, "V2EnhancedOrganizations", "V2Organizations", "V1Organizations", "Organizations")
+        date_raw = _first(raw, "V2.1DATE", "DATE")
+        src_col_raw = _first(raw, "V2SourceCollectionIdentifier", "SourceCollectionIdentifier")
+        src_name_raw = _first(raw, "V2SourceCommonName", "SourceCommonName")
+        doc_id_raw = _first(raw, "V2DocumentIdentifier", "DocumentIdentifier")
+        gcam_raw = _first(raw, "V2GCAM", "GCAM")
+        img_raw = _first(raw, "V2.1SharingImage", "SharingImage")
+        trans_raw = _first(raw, "V2.1TranslationInfo", "TranslationInfo")
         return {
             "GKGRecordID": raw.get("GKGRecordID", "").strip() or None,
-            "DATE": raw.get("DATE", "").strip() or None,
-            "SourceCollectionIdentifier": _safe_int_str(raw.get("SourceCollectionIdentifier", "")),
-            "SourceCommonName": raw.get("SourceCommonName", "").strip() or None,
-            "DocumentIdentifier": raw.get("DocumentIdentifier", "").strip() or None,
+            "DATE": date_raw or None,
+            "SourceCollectionIdentifier": _safe_int_str(src_col_raw),
+            "SourceCommonName": src_name_raw or None,
+            "DocumentIdentifier": doc_id_raw or None,
             # Parsed multi-value fields
-            "Themes": _parse_v2themes(raw.get("V2Themes", "") or raw.get("Themes", "")),
-            "Locations": _parse_v2locations(raw.get("V2Locations", "") or raw.get("Locations", "")),
-            "Persons": _parse_v2persons(raw.get("V2Persons", "") or raw.get("Persons", "")),
-            "Organizations": _parse_v2organizations(raw.get("V2Organizations", "") or raw.get("Organizations", "")),
+            "Themes": _parse_v2themes(themes_raw),
+            "Locations": _parse_v2locations(locs_raw),
+            "Persons": _parse_v2persons(persons_raw),
+            "Organizations": _parse_v2organizations(orgs_raw),
             # Tone values
             "Tone": tone_parsed["tone"],
             "TonePositive": tone_parsed["positive_score"],
@@ -235,9 +250,9 @@ class GKGParser:
             "ToneSelfRefDensity": tone_parsed["self_ref_density"],
             "ToneWordCount": tone_parsed["word_count"],
             # Raw fields kept for downstream
-            "GCAM": _parse_gcam(raw.get("GCAM", "")),
-            "SharingImage": raw.get("SharingImage", "").strip() or None,
-            "TranslationInfo": raw.get("TranslationInfo", "").strip() or None,
+            "GCAM": _parse_gcam(gcam_raw),
+            "SharingImage": img_raw or None,
+            "TranslationInfo": trans_raw or None,
         }
 
     def _quarantine(self, raw: Dict, error: str, source: str, line_num: int) -> None:
@@ -248,6 +263,15 @@ class GKGParser:
         dl_file = self.dead_letter_dir / "gkg_dead_letter.jsonl"
         with open(dl_file, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry) + "\n")
+
+
+def _first(raw: Dict[str, str], *keys: str) -> str:
+    """Return the first non-empty stripped value across candidate column aliases."""
+    for k in keys:
+        val = raw.get(k, "")
+        if val and val.strip():
+            return val.strip()
+    return ""
 
 
 def _safe_int_str(v: str) -> Optional[int]:

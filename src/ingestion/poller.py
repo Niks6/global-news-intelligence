@@ -2,16 +2,19 @@
 GDELT Master Last-Update Poller.
 Polls https://data.gdeltproject.org/gdeltv2/lastupdate.txt every POLL_INTERVAL_MINUTES.
 Discovers new Events, Mentions, and GKG archive files.
-Downloads, verifies, parses, and publishes to Kafka.
+Downloads, verifies, parses, publishes to Kafka, and persists real metrics.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import tempfile
 import time
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import requests
 
@@ -25,7 +28,11 @@ from src.ingestion.parsers.gkg_parser import GKGParser
 
 logger = logging.getLogger(__name__)
 
-LASTUPDATE_URL = "https://data.gdeltproject.org/gdeltv2/lastupdate.txt"
+LASTUPDATE_URL = os.environ.get(
+    "GDELT_LASTUPDATE_URL",
+    "https://data.gdeltproject.org/gdeltv2/lastupdate.txt",
+)
+LASTUPDATE_HTTP_FALLBACK = "http://data.gdeltproject.org/gdeltv2/lastupdate.txt"
 
 # Environment variable names
 ENV_POLL_INTERVAL = "POLL_INTERVAL_MINUTES"
@@ -34,6 +41,7 @@ ENV_CHECKPOINT_DB = "GDELT_CHECKPOINT_DB"
 ENV_DEAD_LETTER_DIR = "GDELT_DEAD_LETTER_DIR"
 ENV_KAFKA_BROKERS = "KAFKA_BOOTSTRAP_SERVERS"
 ENV_DRY_RUN = "GDELT_DRY_RUN"
+ENV_METRICS_FILE = "GDELT_METRICS_FILE"
 
 # File type identification substrings
 FILE_TYPE_MAP = {
@@ -93,6 +101,7 @@ class GDELTPoller:
         dead_letter_dir: Optional[str | Path] = None,
         kafka_brokers: Optional[str] = None,
         dry_run: Optional[bool] = None,
+        metrics_file: Optional[str | Path] = None,
     ) -> None:
         # Resolve configuration from args or environment variables
         self.poll_interval = int(
@@ -110,6 +119,10 @@ class GDELTPoller:
         self.dead_letter_dir = Path(
             dead_letter_dir
             or os.environ.get(ENV_DEAD_LETTER_DIR, "data/dead_letter")
+        )
+        self.metrics_file = Path(
+            metrics_file
+            or os.environ.get(ENV_METRICS_FILE, "data/metrics/ingestion_metrics.json")
         )
         brokers = kafka_brokers or os.environ.get(ENV_KAFKA_BROKERS, "localhost:9092")
 
@@ -129,8 +142,8 @@ class GDELTPoller:
         self.gkg_parser = GKGParser(dead_letter_dir=self.dead_letter_dir)
 
         logger.info(
-            "GDELTPoller initialised: poll_interval=%dm, download_dir=%s, dry_run=%s",
-            self.poll_interval, self.download_dir, self.dry_run,
+            "GDELTPoller initialised: poll_interval=%dm, download_dir=%s, dry_run=%s, brokers=%s",
+            self.poll_interval, self.download_dir, self.dry_run, brokers,
         )
 
     # ------------------------------------------------------------------
@@ -143,14 +156,9 @@ class GDELTPoller:
         Returns list of result dicts.
         """
         metrics.touch_poll()
-        logger.info("Fetching %s", LASTUPDATE_URL)
-        try:
-            resp = requests.get(LASTUPDATE_URL, timeout=30)
-            resp.raise_for_status()
-            text = resp.text
-        except Exception as exc:
-            logger.error("Failed to fetch lastupdate.txt: %s", exc)
-            metrics.inc_errors()
+        text = self._fetch_lastupdate()
+        if text is None:
+            self._write_metrics_snapshot()
             return []
 
         entries = _parse_lastupdate(text)
@@ -181,6 +189,7 @@ class GDELTPoller:
             result = self._process_entry(entry)
             results.append(result)
 
+        self._write_metrics_snapshot()
         return results
 
     def run_forever(self) -> None:
@@ -195,6 +204,7 @@ class GDELTPoller:
             except Exception as exc:
                 logger.error("Unexpected error in polling loop: %s", exc, exc_info=True)
                 metrics.inc_errors()
+                self._write_metrics_snapshot()
             wait_secs = self.poll_interval * 60
             logger.info("Sleeping %ds until next poll", wait_secs)
             time.sleep(wait_secs)
@@ -208,11 +218,56 @@ class GDELTPoller:
         if file_type is None:
             raise ValueError(f"Cannot detect file type for {local_path}")
         logger.info("Replaying %s (type=%s)", local_path, file_type)
-        return self._parse_and_produce(local_path, file_type, url=str(local_path))
+        res = self._parse_and_produce(local_path, file_type, url=str(local_path))
+        self._write_metrics_snapshot()
+        return res
 
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
+
+    def _fetch_lastupdate(self) -> Optional[str]:
+        urls = [LASTUPDATE_URL]
+        if LASTUPDATE_HTTP_FALLBACK not in urls:
+            urls.append(LASTUPDATE_HTTP_FALLBACK)
+        for url in urls:
+            try:
+                logger.info("Fetching %s", url)
+                resp = requests.get(url, timeout=30)
+                resp.raise_for_status()
+                return resp.text
+            except Exception as exc:
+                logger.warning("Failed to fetch %s: %s", url, exc)
+        logger.error("All lastupdate.txt endpoints failed")
+        metrics.inc_errors()
+        return None
+
+    def _write_metrics_snapshot(self) -> None:
+        """Persist real SQLite-backed + runtime ingestion telemetry atomically."""
+        try:
+            self.metrics_file.parent.mkdir(parents=True, exist_ok=True)
+            db_metrics = self.checkpoint.get_pipeline_metrics()
+            runtime = metrics.as_dict()
+            db_metrics["last_poll_time"] = (
+                datetime.fromtimestamp(runtime["last_poll_time"], tz=timezone.utc).isoformat()
+                if runtime.get("last_poll_time")
+                else datetime.now(timezone.utc).isoformat()
+            )
+            db_metrics["kafka_messages_sent"] = runtime.get("kafka_messages_sent", 0)
+            db_metrics["total_errors"] = max(
+                db_metrics.get("total_errors", 0),
+                runtime.get("errors", 0),
+            )
+
+            tmp_fd, tmp_name = tempfile.mkstemp(
+                dir=self.metrics_file.parent, prefix=".metrics_", suffix=".json"
+            )
+            with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
+                json.dump(db_metrics, fh, indent=2)
+            os.chmod(tmp_name, 0o644)
+            os.replace(tmp_name, self.metrics_file)
+        except Exception as exc:
+            logger.warning("Could not write ingestion metrics snapshot: %s", exc)
 
     def _process_entry(self, entry: Dict) -> Dict:
         url = entry["url"]
@@ -251,7 +306,7 @@ class GDELTPoller:
     def _parse_and_produce(
         self, local_path: Path, file_type: str, url: str
     ) -> Dict:
-        result: Dict = {"url": url, "file_type": file_type, "status": "ok", "records": 0}
+        result: Dict = {"url": url, "file_type": file_type, "status": "ok", "records": 0, "rejected": 0}
 
         try:
             if file_type == "events":
@@ -280,8 +335,16 @@ class GDELTPoller:
                 return result
 
             metrics.inc_rejected(result.get("rejected", 0))
-            self.producer.flush()
-            self.checkpoint.mark_processed(url, kafka_published=not self.dry_run)
+            remaining = self.producer.flush()
+            if remaining > 0 and not self.dry_run:
+                raise RuntimeError(f"Kafka flush incomplete: {remaining} messages remaining")
+
+            self.checkpoint.mark_processed(
+                url,
+                kafka_published=not self.dry_run,
+                records_accepted=result["records"],
+                records_rejected=result["rejected"],
+            )
             metrics.inc_processed()
             logger.info(
                 "Processed %s: %d records accepted, %d rejected",

@@ -14,8 +14,16 @@ export function useOverview(range: DateRange) {
   return useQuery({ queryKey: ['overview', from, to], queryFn: () => api.fetchOverview(from, to) })
 }
 
-export function useEvents(params: Record<string, any>) {
-  return useQuery({ queryKey: ['events', params], queryFn: () => api.fetchEvents(params) })
+export function useEvents(params: Record<string, any>, enabled: boolean = true) {
+  return useQuery({ queryKey: ['events', params], queryFn: () => api.fetchEvents(params), enabled })
+}
+
+export function useSearchEvents(q: string, params: Record<string, any>) {
+  return useQuery({
+    queryKey: ['search', q, params],
+    queryFn: () => api.fetchSearch(q, params),
+    enabled: q.trim().length >= 2,
+  })
 }
 
 export function useEventDetail(id: number | null) {

@@ -89,7 +89,7 @@ def _normalize_theme_udf():
 
 
 def run(spark: SparkSession) -> None:
-    hdfs_base = os.environ.get("HDFS_BASE", "hdfs://namenode:8020/gdelt")
+    hdfs_base = os.environ.get("HDFS_BASE", "hdfs://namenode:9000/gdelt")
     kafka_brokers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     checkpoint_base = f"{hdfs_base}/checkpoints/gkg_stream"
 

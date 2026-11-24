@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info("Global News Intelligence API starting up — version 1.0.0")
-    logger.info("HBase: %s:%s", settings.hbase_host, settings.hbase_thrift_port)
+    logger.info("HBase: %s:%s | Kafka: %s", settings.hbase_host, settings.hbase_thrift_port, settings.kafka_bootstrap_servers)
     yield
     logger.info("API shutting down")
 
@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_url, "http://localhost:3000", "http://localhost:5173"],
+        allow_origins=[settings.frontend_url, "http://localhost:3000", "http://localhost:5173", "http://localhost", "http://frontend", "http://frontend:80", "*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -63,4 +63,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

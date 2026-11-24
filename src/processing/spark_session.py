@@ -64,7 +64,7 @@ def create_spark_session(
         ) from exc
 
     spark_master = master or os.environ.get("SPARK_MASTER", "local[*]")
-    hdfs_namenode = os.environ.get("HDFS_NAMENODE", "hdfs://namenode:8020")
+    hdfs_namenode = os.environ.get("HDFS_NAMENODE", os.environ.get("HDFS_NAMENODE_URL", "hdfs://namenode:9000"))
     hbase_zk_quorum = os.environ.get("HBASE_ZK_QUORUM", "localhost")
 
     # Build package list
@@ -96,6 +96,7 @@ def create_spark_session(
         .config("spark.memory.storageFraction", "0.5")
         # --- Hadoop HDFS settings ---
         .config("spark.hadoop.fs.defaultFS", hdfs_namenode)
+        .config("spark.hadoop.dfs.client.use.datanode.hostname", "true")
         # --- HBase settings passed through Hadoop conf ---
         .config("spark.hadoop.hbase.zookeeper.quorum", hbase_zk_quorum)
         .config("spark.hadoop.hbase.zookeeper.property.clientPort", "2181")

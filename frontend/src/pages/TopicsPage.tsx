@@ -20,6 +20,8 @@ export default function TopicsPage() {
   const trend = useTopicTrend(selected || '', range)
 
   const topicData = topics.data?.data || []
+  const activeTopic = selected || topicData[0]?.topic || ''
+  const activeTrend = useTopicTrend(activeTopic, range)
 
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -47,7 +49,10 @@ export default function TopicsPage() {
                 <YAxis type="category" dataKey="topic" tick={{ fill: '#94a3b8', fontSize: 10 }} width={80} />
                 <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#f1f5f9' }} />
                 <Bar dataKey="count" fill="#a855f7" radius={[0, 4, 4, 0]} name="Frequency" cursor="pointer"
-                  onClick={(data: any) => setSelected(data.topic)} />
+                  onClick={(data: any) => {
+                    const t = data?.topic || data?.payload?.topic
+                    if (t) setSelected(t)
+                  }} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -56,13 +61,13 @@ export default function TopicsPage() {
         {/* Topic Trend */}
         <div className="card">
           <h3 className="section-title mb-4">
-            {selected ? `Trend: ${selected}` : 'Select a topic to see its trend'}
+            {activeTopic ? `Trend: ${activeTopic}` : 'Select a topic to see its trend'}
           </h3>
-          {!selected ? (
+          {!activeTopic ? (
             <div className="flex items-center justify-center h-80 text-slate-500">Click a topic bar to view its trend over time</div>
-          ) : trend.isLoading ? <ChartSkeleton /> : (
+          ) : activeTrend.isLoading ? <ChartSkeleton /> : (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={trend.data?.trend || []}>
+              <LineChart data={activeTrend.data?.trend || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                 <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} />
                 <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
