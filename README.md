@@ -157,7 +157,7 @@ flowchart TD
 
 | File | Function |
 |---|---|
-| `poller.py` | Reads `lastupdate.txt` every 15 minutes and finds new Events, Mentions and GKG files |
+| `poller.py` | Reads `lastupdate.txt` every 15 mins and finds new Events, Mentions and GKG files |
 | `downloader.py` | Downloads with retry and back-off; verifies file size and MD5 from the manifest; atomic file rename |
 | `checkpoint.py` | SQLite table `ingestion_files` records processed files so they are skipped after a restart |
 | `parsers/` | `events_parser.py` (61 columns), `mentions_parser.py` (16), `gkg_parser.py` (27); type casting and required-field checks; bad rows go to the dead-letter path |
