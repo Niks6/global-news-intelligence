@@ -1,0 +1,9 @@
+# Minimal dependencies for running the backend API in development mode
+# (no Kafka/HBase/Spark infrastructure required)
+
+fastapi>=0.108.0
+uvicorn[standard]>=0.25.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+httpx>=0.26.0
+python-dotenv>=1.0.0

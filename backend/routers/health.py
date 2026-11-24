@@ -92,6 +92,7 @@ def health_check():
         "version": "1.0.0",
         "service": "Global News Intelligence API",
         "components": components,
+        "demo_mode": not any_up,
     }
 
 

@@ -34,10 +34,15 @@ def _empty_list() -> Dict:
 
 
 class HBaseService:
-    """Service layer that wraps HBase reads and returns API-ready dicts."""
+    """Service layer that wraps HBase reads and returns API-ready dicts.
+    
+    When HBase is unavailable (e.g. dev mode), automatically falls back
+    to DemoDataService which provides realistic sample data.
+    """
 
     def __init__(self):
         self._conn = None
+        self._demo = None
         try:
             import happybase
             self._conn = happybase.Connection(
@@ -46,7 +51,13 @@ class HBaseService:
                 timeout=5000,
             )
         except Exception as exc:
-            logger.warning("HBase not available: %s — returning empty responses", exc)
+            logger.warning("HBase not available: %s — using demo data service", exc)
+            from backend.services.demo_data_service import DemoDataService
+            self._demo = DemoDataService()
+
+    @property
+    def _use_demo(self) -> bool:
+        return self._demo is not None
 
     def _table(self, name: str):
         if self._conn is None:
@@ -90,6 +101,8 @@ class HBaseService:
     # Overview
     # ------------------------------------------------------------------
     def get_overview(self, from_dt: datetime, to_dt: datetime) -> Dict:
+        if self._use_demo:
+            return self._demo.get_overview(from_dt, to_dt)
         country_metrics = self._scan_country_metrics(from_dt, to_dt)
         category_metrics = self._scan_category_metrics(from_dt, to_dt)
 
@@ -150,6 +163,8 @@ class HBaseService:
         category: Optional[str] = None, tone_min: Optional[float] = None,
         tone_max: Optional[float] = None, page: int = 1, limit: int = 50,
     ) -> Dict:
+        if self._use_demo:
+            return self._demo.get_events(from_dt, to_dt, country=country, category=category, page=page, limit=limit)
         table = self._table("events_by_country_time")
         if table is None:
             return _empty_paginated(page, limit)
@@ -186,6 +201,8 @@ class HBaseService:
             return _empty_paginated(page, limit)
 
     def get_event_by_id(self, event_id: int) -> Dict:
+        if self._use_demo:
+            return self._demo.get_event_by_id(event_id)
         table = self._table("events_by_id")
         if table is None:
             return {}
@@ -197,6 +214,8 @@ class HBaseService:
             return {}
 
     def get_event_mentions(self, event_id: int, limit: int = 50) -> Dict:
+        if self._use_demo:
+            return self._demo.get_event_mentions(event_id, limit)
         # Mentions stored separately; return empty with note if table missing
         return {"items": [], "total": 0,
                 "note": "Mentions lookup requires mentions_by_event HBase table"}
@@ -241,6 +260,8 @@ class HBaseService:
         self, from_dt: datetime, to_dt: datetime,
         country: Optional[str] = None, limit: int = 20,
     ) -> Dict:
+        if self._use_demo:
+            return self._demo.get_topics(from_dt, to_dt, country=country)
         rows = self._scan_topic_metrics(from_dt, to_dt)
         # Aggregate by topic
         agg: Dict[str, Dict] = {}
@@ -263,12 +284,16 @@ class HBaseService:
         return {"data": topics[:limit], "total": len(topics)}
 
     def get_topic_trend(self, topic: str, from_dt: datetime, to_dt: datetime) -> Dict:
+        if self._use_demo:
+            return self._demo.get_topic_trend(topic, from_dt, to_dt)
         rows = self._scan_topic_metrics(from_dt, to_dt, topic=topic)
         series = [{"date": r.get("date"), "count": r.get("count", 0), "avg_tone": r.get("avg_tone")} for r in rows]
         series.sort(key=lambda x: x.get("date") or "")
         return {"topic": topic, "trend": series}
 
     def get_topic_countries(self, topic: str, from_dt: datetime, to_dt: datetime) -> Dict:
+        if self._use_demo:
+            return self._demo.get_topic_countries(topic, from_dt, to_dt)
         rows = self._scan_topic_metrics(from_dt, to_dt, topic=topic)
         country_counts: Dict[str, int] = {}
         for r in rows:
@@ -284,6 +309,8 @@ class HBaseService:
     # Countries
     # ------------------------------------------------------------------
     def get_country_overview(self, country_code: str, from_dt: datetime, to_dt: datetime) -> Dict:
+        if self._use_demo:
+            return self._demo.get_country_overview(country_code, from_dt, to_dt)
         metrics = self._scan_country_metrics(from_dt, to_dt, country=country_code)
         if not metrics:
             return {"country_code": country_code, "data_available": False,
@@ -307,10 +334,14 @@ class HBaseService:
         }
 
     def get_country_regions(self, country_code: str, from_dt: datetime, to_dt: datetime) -> Dict:
+        if self._use_demo:
+            return self._demo.get_country_regions(country_code, from_dt, to_dt)
         return {"country_code": country_code, "regions": [],
                 "note": "Region-level data requires ADM1 reverse geocoding integration"}
 
     def compare_countries(self, codes: List[str], from_dt: datetime, to_dt: datetime) -> Dict:
+        if self._use_demo:
+            return self._demo.compare_countries(codes, from_dt, to_dt)
         result = []
         for code in codes:
             overview = self.get_country_overview(code, from_dt, to_dt)
@@ -321,6 +352,8 @@ class HBaseService:
     # Analytics
     # ------------------------------------------------------------------
     def get_category_metrics(self, from_dt: datetime, to_dt: datetime, country: Optional[str] = None) -> Dict:
+        if self._use_demo:
+            return self._demo.get_category_metrics(from_dt, to_dt, country=country)
         rows = self._scan_category_metrics(from_dt, to_dt, country=country)
         agg: Dict[str, Dict] = {}
         for r in rows:
@@ -350,6 +383,8 @@ class HBaseService:
         return {"data": result, "total": sum(v["count"] for v in agg.values())}
 
     def get_tone_metrics(self, from_dt: datetime, to_dt: datetime, country: Optional[str] = None, topic: Optional[str] = None) -> Dict:
+        if self._use_demo:
+            return self._demo.get_tone_metrics(from_dt, to_dt, country=country, topic=topic)
         metrics = self._scan_country_metrics(from_dt, to_dt, country=country)
         series = [{"date": m.get("date"), "avg_tone": m.get("avg_tone")} for m in metrics if m.get("date")]
         series.sort(key=lambda x: x.get("date") or "")
@@ -362,6 +397,8 @@ class HBaseService:
         }
 
     def get_cooperation_conflict(self, from_dt: datetime, to_dt: datetime, country: Optional[str] = None) -> Dict:
+        if self._use_demo:
+            return self._demo.get_cooperation_conflict(from_dt, to_dt, country=country)
         metrics = self._scan_country_metrics(from_dt, to_dt, country=country)
         coop = sum(m.get("cooperation_count", 0) for m in metrics)
         conf = sum(m.get("conflict_count", 0) for m in metrics)
@@ -374,6 +411,8 @@ class HBaseService:
         }
 
     def get_anomalies(self, from_dt: datetime, to_dt: datetime, country: Optional[str] = None, min_z_score: float = 2.5) -> Dict:
+        if self._use_demo:
+            return self._demo.get_anomalies(from_dt, to_dt, country=country, min_z_score=min_z_score)
         table = self._table("anomalies_by_time")
         if table is None:
             return _empty_list()
@@ -412,6 +451,8 @@ class HBaseService:
     def get_map_events(self, from_dt: datetime, to_dt: datetime,
                        country: Optional[str] = None, topic: Optional[str] = None,
                        category: Optional[str] = None, max_points: int = 2000) -> Dict:
+        if self._use_demo:
+            return self._demo.get_map_events(from_dt, to_dt, category=category, limit=max_points)
         events_resp = self.get_events(from_dt, to_dt, country=country, category=category, limit=max_points)
         items = events_resp.get("items", [])
         markers = [
@@ -433,6 +474,8 @@ class HBaseService:
         return {"markers": markers, "total": len(markers), "no_coordinates_count": no_coords}
 
     def get_map_countries(self, from_dt: datetime, to_dt: datetime) -> Dict:
+        if self._use_demo:
+            return self._demo.get_map_countries(from_dt, to_dt)
         metrics = self._scan_country_metrics(from_dt, to_dt)
         agg: Dict[str, int] = {}
         for m in metrics:
@@ -449,6 +492,8 @@ class HBaseService:
     # Search
     # ------------------------------------------------------------------
     def search_events(self, q: str, from_dt: datetime, to_dt: datetime, page: int = 1, limit: int = 50) -> Dict:
+        if self._use_demo:
+            return self._demo.search_events(q, from_dt, to_dt, page=page, limit=limit)
         # Basic keyword search via HBase scan — in production use ElasticSearch or HDFS Spark query
         result = self.get_events(from_dt, to_dt, page=page, limit=limit)
         q_lower = q.lower()
@@ -465,6 +510,8 @@ class HBaseService:
     # Region
     # ------------------------------------------------------------------
     def get_region_overview(self, region_id: str, from_dt: datetime, to_dt: datetime) -> Dict:
+        if self._use_demo:
+            return self._demo.get_region_overview(region_id, from_dt, to_dt)
         return {
             "region_id": region_id,
             "data_available": False,
